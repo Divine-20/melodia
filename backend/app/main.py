@@ -4,7 +4,7 @@ from datetime import date
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.router import api_router
@@ -16,10 +16,26 @@ from app.models.album import Album
 from app.models.artist import Artist
 from app.models.user import User, UserRole
 
+# OpenAPI tag descriptions appear as section headers in Swagger UI (/docs) and ReDoc (/redoc).
+OPENAPI_TAGS: list[dict[str, str]] = [
+    {
+        "name": "auth",
+        "description": "Register, log in, and refresh JWTs. Use the access token for protected routes.",
+    },
+    {"name": "artists", "description": "Artists in the catalog."},
+    {"name": "albums", "description": "Albums, pricing, and purchases."},
+    {"name": "ratings", "description": "User ratings for albums."},
+    {"name": "library", "description": "The signed-in user's library (/me/...)."},
+    {"name": "health", "description": "Service health checks."},
+]
+
 
 async def init_db_schema() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Keep simple additive schema evolution without Alembic.
+        await conn.execute(text("ALTER TABLE albums ADD COLUMN IF NOT EXISTS photo_url VARCHAR(2048)"))
+        await conn.execute(text("ALTER TABLE artists ADD COLUMN IF NOT EXISTS picture_url VARCHAR(2048)"))
 
 
 async def seed_if_empty(session: AsyncSession) -> None:
@@ -98,7 +114,22 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, lifespan=lifespan)
+    app = FastAPI(
+        title=settings.app_name,
+        description=(
+            "REST API for Melodia. Interactive documentation: "
+            "**[Swagger UI](/docs)** (try requests in the browser) and **[ReDoc](/redoc)** (readable reference). "
+            "Machine-readable schema: **[OpenAPI JSON](/openapi.json)**.\n\n"
+            "**JWT:** call `POST /api/v1/auth/login`, copy `access_token`, then in Swagger click **Authorize** "
+            "and paste the token (Swagger sends it as HTTP Bearer)."
+        ),
+        version="1.0.0",
+        lifespan=lifespan,
+        openapi_tags=OPENAPI_TAGS,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+    )
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
@@ -109,7 +140,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(api_router)
 
-    @app.get("/health")
+    @app.get("/health", tags=["health"], summary="Health check")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 

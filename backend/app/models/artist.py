@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text
+from sqlalchemy import Date, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database_base import Base
@@ -14,6 +14,7 @@ class Artist(Base):
     date_of_birth: Mapped[date] = mapped_column(Date)
     performing_name: Mapped[str] = mapped_column(String(255), index=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    picture_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

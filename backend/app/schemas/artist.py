@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field
 
 
 class ArtistBase(BaseModel):
@@ -8,6 +8,7 @@ class ArtistBase(BaseModel):
     date_of_birth: date
     performing_name: str = Field(min_length=1, max_length=255)
     bio: str | None = None
+    picture_url: AnyUrl | None = None
 
 
 class ArtistCreate(ArtistBase):
@@ -19,6 +20,7 @@ class ArtistUpdate(BaseModel):
     date_of_birth: date | None = None
     performing_name: str | None = Field(default=None, min_length=1, max_length=255)
     bio: str | None = None
+    picture_url: AnyUrl | None = None
 
 
 class ArtistRead(ArtistBase):

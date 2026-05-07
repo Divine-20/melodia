@@ -14,6 +14,7 @@ class Album(Base):
     name: Mapped[str] = mapped_column(String(255), index=True)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    photo_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     artist_id: Mapped[int] = mapped_column(ForeignKey("artists.id", ondelete="CASCADE"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now())
     updated_at: Mapped[datetime] = mapped_column(

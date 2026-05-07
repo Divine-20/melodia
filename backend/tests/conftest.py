@@ -2,6 +2,11 @@ import os
 
 os.environ["TESTING"] = "1"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-ci-only-32chars!"
+# Isolate tests from development data: destructive schema setup uses this URL.
+os.environ["DATABASE_URL"] = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://melodia:melodia@localhost:5432/melodia_test",
+)
 
 import pytest
 from httpx import ASGITransport, AsyncClient

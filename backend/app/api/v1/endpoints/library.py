@@ -77,8 +77,10 @@ async def my_library(
                 purchased_at=p.purchased_at,
                 album_id=al.id,
                 album_name=al.name,
+                album_photo_url=al.photo_url,
                 price=al.price,
                 artist_performing_name=artist_name,
+                artist_picture_url=al.artist.picture_url if al.artist else None,
                 average_rating=avg,
                 user_rating=rating_map.get(al.id),
             )

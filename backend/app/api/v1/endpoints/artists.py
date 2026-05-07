@@ -70,6 +70,7 @@ async def create_artist(
         date_of_birth=body.date_of_birth,
         performing_name=body.performing_name,
         bio=body.bio,
+        picture_url=str(body.picture_url) if body.picture_url else None,
     )
     db.add(artist)
     await db.flush()
@@ -89,6 +90,8 @@ async def update_artist(
     if artist is None:
         raise HTTPException(status_code=404, detail="Artist not found")
     data = body.model_dump(exclude_unset=True)
+    if "picture_url" in data and data["picture_url"] is not None:
+        data["picture_url"] = str(data["picture_url"])
     for k, v in data.items():
         setattr(artist, k, v)
     await db.flush()

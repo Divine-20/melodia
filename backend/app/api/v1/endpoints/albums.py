@@ -28,6 +28,7 @@ def _album_to_read(row: Album, stats: dict[int, tuple[float | None, int]]) -> Al
         name=row.name,
         price=row.price,
         description=row.description,
+        photo_url=row.photo_url,
         artist_id=row.artist_id,
         average_rating=avg,
         rating_count=cnt,
@@ -37,11 +38,15 @@ def _album_to_read(row: Album, stats: dict[int, tuple[float | None, int]]) -> Al
 
 
 def _album_to_read_with_artist(
-    row: Album, stats: dict[int, tuple[float | None, int]], performing: str | None
+    row: Album,
+    stats: dict[int, tuple[float | None, int]],
+    performing: str | None,
+    artist_picture_url: str | None = None,
 ) -> AlbumReadWithArtist:
     base = _album_to_read(row, stats)
     data = base.model_dump()
     data["artist_performing_name"] = performing
+    data["artist_picture_url"] = artist_picture_url
     return AlbumReadWithArtist(**data)
 
 
@@ -87,7 +92,10 @@ async def list_albums(
         stats_full = await average_ratings_for_albums(db, [a.id for a in chunk])
         items = [
             _album_to_read_with_artist(
-                a, stats_full, a.artist.performing_name if a.artist else None
+                a,
+                stats_full,
+                a.artist.performing_name if a.artist else None,
+                a.artist.picture_url if a.artist else None,
             )
             for a in chunk
         ]
@@ -110,7 +118,12 @@ async def list_albums(
     ids = [a.id for a in rows]
     stats = await average_ratings_for_albums(db, ids)
     items = [
-        _album_to_read_with_artist(a, stats, a.artist.performing_name if a.artist else None)
+        _album_to_read_with_artist(
+            a,
+            stats,
+            a.artist.performing_name if a.artist else None,
+            a.artist.picture_url if a.artist else None,
+        )
         for a in rows
     ]
     pages = max(1, ceil(total / page_size)) if total else 1
@@ -131,16 +144,19 @@ async def get_album(
         raise HTTPException(status_code=404, detail="Album not found")
     stats = await average_ratings_for_albums(db, [album.id])
     return _album_to_read_with_artist(
-        album, stats, album.artist.performing_name if album.artist else None
+        album,
+        stats,
+        album.artist.performing_name if album.artist else None,
+        album.artist.picture_url if album.artist else None,
     )
 
 
-@router.post("", response_model=AlbumRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=AlbumReadWithArtist, status_code=status.HTTP_201_CREATED)
 async def create_album(
     body: AlbumCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     _: AdminUser,
-) -> AlbumRead:
+) -> AlbumReadWithArtist:
     a_check = await db.execute(select(Artist).where(Artist.id == body.artist_id))
     if a_check.scalar_one_or_none() is None:
         raise HTTPException(status_code=400, detail="Artist does not exist")
@@ -149,27 +165,39 @@ async def create_album(
         name=body.name,
         price=body.price,
         description=body.description,
+        photo_url=str(body.photo_url) if body.photo_url else None,
         artist_id=body.artist_id,
     )
     db.add(album)
     await db.flush()
-    await db.refresh(album)
-    stats = await average_ratings_for_albums(db, [album.id])
-    return _album_to_read(album, stats)
+    loaded = (
+        await db.execute(
+            select(Album).options(selectinload(Album.artist)).where(Album.id == album.id)
+        )
+    ).scalar_one()
+    stats = await average_ratings_for_albums(db, [loaded.id])
+    return _album_to_read_with_artist(
+        loaded,
+        stats,
+        loaded.artist.performing_name if loaded.artist else None,
+        loaded.artist.picture_url if loaded.artist else None,
+    )
 
 
-@router.patch("/{album_id}", response_model=AlbumRead)
+@router.patch("/{album_id}", response_model=AlbumReadWithArtist)
 async def update_album(
     album_id: int,
     body: AlbumUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     _: AdminUser,
-) -> AlbumRead:
+) -> AlbumReadWithArtist:
     result = await db.execute(select(Album).where(Album.id == album_id))
     album = result.scalar_one_or_none()
     if album is None:
         raise HTTPException(status_code=404, detail="Album not found")
     data = body.model_dump(exclude_unset=True)
+    if "photo_url" in data and data["photo_url"] is not None:
+        data["photo_url"] = str(data["photo_url"])
     if "artist_id" in data and data["artist_id"] is not None:
         a_check = await db.execute(select(Artist).where(Artist.id == data["artist_id"]))
         if a_check.scalar_one_or_none() is None:
@@ -177,9 +205,18 @@ async def update_album(
     for k, v in data.items():
         setattr(album, k, v)
     await db.flush()
-    await db.refresh(album)
-    stats = await average_ratings_for_albums(db, [album.id])
-    return _album_to_read(album, stats)
+    loaded = (
+        await db.execute(
+            select(Album).options(selectinload(Album.artist)).where(Album.id == album.id)
+        )
+    ).scalar_one()
+    stats = await average_ratings_for_albums(db, [loaded.id])
+    return _album_to_read_with_artist(
+        loaded,
+        stats,
+        loaded.artist.performing_name if loaded.artist else None,
+        loaded.artist.picture_url if loaded.artist else None,
+    )
 
 
 @router.delete("/{album_id}", status_code=status.HTTP_204_NO_CONTENT)

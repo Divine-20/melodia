@@ -1,86 +1,52 @@
 # Melodia — Music Marketplace
 
-React + FastAPI implementation of the hiring exercise: admins manage artists and albums; guests browse and search; authenticated listeners purchase albums once, rate owned albums, and browse a personal library. Business rules are enforced on the server.
+A small full-stack music marketplace:
 
-## Quick start (Docker Compose)
+- **Backend** — FastAPI + SQLAlchemy (async) + PostgreSQL → `backend/`
+- **Frontend** — React + Vite + TanStack Query + Tailwind → `melodia-frontend/`
+- **Database** — PostgreSQL 16
 
-Requires Docker with Compose v2.
+## One command to run everything
 
 ```bash
 docker compose up --build
 ```
 
-- **Frontend:** http://localhost:8080 (nginx serves the SPA and proxies `/api` to the API)
-- **API:** http://localhost:8000 (direct) · health: http://localhost:8000/health
-- **PostgreSQL:** localhost `5432`, database `melodia`, user/password `melodia` / `melodia`
+That brings up three services on a private Docker network:
 
-### Seeded credentials
+| Service     | URL / port                                | Notes                                           |
+|-------------|-------------------------------------------|-------------------------------------------------|
+| Frontend    | http://localhost:8080                     | nginx serves the SPA and proxies `/api`/`health` to the backend |
+| Backend API | http://localhost:8000                     | FastAPI; Swagger UI at http://localhost:8000/docs |
+| PostgreSQL  | `localhost:5432` (db `melodia`, user `melodia`, password `melodia`) | Data persists in the named volume `melodia_pg`  |
 
-After the API starts, the database is migrated automatically and seed data runs once:
+The frontend container is configured with an empty `VITE_API_BASE_URL`, so the SPA makes **same-origin requests** to `/api/*`. nginx inside that container forwards them to the `backend` service over the compose network — there is no CORS configuration to worry about in the browser.
 
-| Role   | Email               | Password   |
-|--------|---------------------|------------|
-| Admin  | `admin@example.com` | `admin123` |
-| Listener | `listener@example.com` | `user123` |
-
-Email domains use RFC-friendly addresses so `email-validator` accepts them in all environments.
-
-## Local development (without Docker)
-
-### Backend
+### Stop / reset
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-export DATABASE_URL=postgresql+asyncpg://melodia:melodia@localhost:5432/melodia
-export JWT_SECRET_KEY=$(openssl rand -hex 32)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+docker compose down            # stop containers, keep data
+docker compose down -v         # also drop the Postgres volume (fresh seed on next start)
 ```
 
-With PostgreSQL running locally (or adjust `DATABASE_URL`). Tables are created on startup; seed runs when the `users` table is empty.
+## Seeded credentials
 
-### Frontend
+The first time the backend starts against an empty database, it creates demo users (and a small artist/album catalog) so the app is ready to click around in:
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+| Role     | Email                  | Password   |
+|----------|------------------------|------------|
+| Admin    | `admin@example.com`    | `admin123` |
+| Listener | `listener@example.com` | `user123`  |
 
-Vite proxies `/api` and `/health` to `http://127.0.0.1:8000` (see `vite.config.ts`). Open http://localhost:5173.
+## Local development without Docker
 
-Optional: `VITE_API_BASE=http://localhost:8000 npm run dev` if you prefer absolute API URLs.
+- Backend: see [`backend/README.md`](backend/README.md) — `uvicorn app.main:app --reload`
+- Frontend: `cd melodia-frontend && npm install && npm run dev`
+  - The dev server reads `VITE_API_BASE_URL` from `melodia-frontend/.env` (defaults to `http://localhost:8000` when running locally outside Docker).
 
-### Tests
+## Files added/changed for the Docker setup
 
-```bash
-cd backend
-TESTING=1 JWT_SECRET_KEY=test-secret-key-for-ci-only-32chars! pytest
-```
-
-Uses an isolated SQLite database (`TESTING=1` switches the API database module to an in-memory SQLite pool).
-
-## Architecture (short)
-
-- **Backend:** FastAPI routers under `/api/v1`, async SQLAlchemy 2.x, Pydantic v2 schemas. JWT access tokens plus refresh tokens (`POST /api/v1/auth/refresh`). Authorization enforced in dependencies (`require_admin`, `get_current_user`).
-- **Domain:** `Artist` → `Album` (many-to-one); `Purchase` unique per `(user, album)`; `Rating` unique per `(user, album)` with averages computed from `Rating.score`. Album list/detail exposes `average_rating` and `rating_count`.
-- **Frontend:** React 18, TanStack Query for server state, React Router, Framer Motion for motion design. Guest flows require no token; purchase/rate/library require auth.
-
-## What is included / omitted
-
-**Included:** PostgreSQL in Compose, pagination + sorting on core lists, JWT refresh flow, animated marketplace UI, admin CRUD for artists/albums, automated tests for purchase/rating rules, README and single Compose command.
-
-**Intentionally light:** No real payments (purchase is a stubbed transaction), no full cart/checkout, no production-grade deployment hardening (TLS, secrets rotation, Alembic migrations — schema is created via SQLAlchemy metadata on startup for reviewer simplicity).
-
-## Project layout
-
-```
-Melodia/
-├── backend/app          # FastAPI application code
-├── backend/tests        # Pytest suite
-├── frontend/src         # React application
-├── docker-compose.yml
-└── README.md
-```
+- `docker-compose.yml` — single command to run db + backend + frontend
+- `melodia-frontend/Dockerfile` — Node build → nginx static server
+- `melodia-frontend/deploy/nginx.conf` — SPA fallback + `/api` and `/health` proxy
+- `melodia-frontend/.dockerignore`

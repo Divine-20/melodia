@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "Melodia API"
     debug: bool = False
 
-    database_url: str = "postgresql+asyncpg://melodia:melodia@localhost:5432/melodia"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/melodia"
 
     jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
     jwt_algorithm: str = "HS256"
