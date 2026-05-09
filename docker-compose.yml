@@ -34,7 +34,7 @@ services:
       context: ./backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+asyncpg://melodia:melodia@db:5432/melodia
+      DATABASE_URL: postgresql+asyncpg://melodia_user:eTgyHxeRJlBw4Kw3yISwD4xUGdB0d1hv@dpg-d7vqmqb7uimc73f0fi0g-a.frankfurt-postgres.render.com/melodia
       JWT_SECRET_KEY: MELODIA@2026##
       # Allow the SPA on port 8080 *and* direct browser hits on 8000 / Vite dev on 5173.
       CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5173,http://127.0.0.1:5173
