@@ -1,7 +1,7 @@
 import os
 
 os.environ["TESTING"] = "1"
-os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-ci-only-32chars!"
+os.environ["JWT_SECRET_KEY"] = "MELODIA@2026##"
 # Isolate tests from development data: destructive schema setup uses this URL.
 os.environ["DATABASE_URL"] = os.getenv(
     "TEST_DATABASE_URL",
