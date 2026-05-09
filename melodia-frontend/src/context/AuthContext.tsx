@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { localStore } from '../lib/localStore';
 import { authApi, isListedAdminEmail } from '../lib/authApi';
 import type { Profile } from '../lib/database.types';
@@ -26,6 +27,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -116,6 +118,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
+
+    queryClient.removeQueries({ queryKey: ['purchases'] });
+    queryClient.removeQueries({ queryKey: ['library'] });
+    queryClient.removeQueries({ queryKey: ['ratings'] });
+    queryClient.removeQueries({ queryKey: ['favorites'] });
+
+    await queryClient.invalidateQueries({ queryKey: ['albums'] });
+    await queryClient.invalidateQueries({ queryKey: ['artists'] });
   }
 
   return (

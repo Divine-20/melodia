@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
@@ -25,6 +25,18 @@ function AppInner() {
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { loading, user, isAdmin } = useAuth();
+
+  useEffect(() => {
+    if (loading || user) return;
+    if (
+      view === 'library' ||
+      view === 'admin' ||
+      view === 'admin-artists' ||
+      view === 'admin-albums'
+    ) {
+      setView('browse');
+    }
+  }, [loading, user, view]);
 
   function handleNavigate(v: View) {
     if (v === 'library' && !user) {
