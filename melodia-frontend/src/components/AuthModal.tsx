@@ -163,7 +163,11 @@ export function AuthModal({ onClose, defaultTab = 'login' }: Props) {
         </form>
 
         <p className="mt-6 text-center text-xs text-gray-500">
-          Auth is backed by your API (`register`, `login`, `refresh`, `me`) and tokens are persisted securely in browser storage.
+          Admin : admin@example.com / admin123
+          
+        </p>
+        <p className="mt-6 text-center text-xs text-gray-500">
+          User : user@example.com / user@123
         </p>
       </div>
     </div>
