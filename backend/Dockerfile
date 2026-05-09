@@ -15,7 +15,7 @@ RUN pip install -r requirements.txt
 
 COPY app ./app
 
-ENV DATABASE_URL=postgresql+asyncpg://melodia:melodia@db:5432/melodia \
+ENV DATABASE_URL=postgresql+asyncpg://melodia_user:eTgyHxeRJlBw4Kw3yISwD4xUGdB0d1hv@dpg-d7vqmqb7uimc73f0fi0g-a.frankfurt-postgres.render.com/melodia \
     JWT_SECRET_KEY=MELODIA@2026## \
     CORS_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
 
