@@ -11,7 +11,7 @@ import { AdminArtistsView } from './views/AdminArtistsView';
 import { AdminAlbumsView } from './views/AdminAlbumsView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { useAuth } from './context/AuthContext';
-import { Music } from 'lucide-react';
+import { Music, Menu } from 'lucide-react';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -23,16 +23,19 @@ function AppInner() {
   const [view, setView] = useState<View>('browse');
   const [showAuth, setShowAuth] = useState(false);
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { loading, user, isAdmin } = useAuth();
 
   function handleNavigate(v: View) {
     if (v === 'library' && !user) {
       setAuthTab('login');
       setShowAuth(true);
+      setMobileNavOpen(false);
       return;
     }
     if ((v === 'admin' || v === 'admin-artists' || v === 'admin-albums') && !isAdmin) return;
     setView(v);
+    setMobileNavOpen(false);
   }
 
   function handleRequireAuth() {
@@ -66,9 +69,34 @@ function AppInner() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex overflow-hidden" style={{ height: '100dvh' }}>
-      <Sidebar currentView={view} onNavigate={handleNavigate} onShowAuth={() => { setAuthTab('login'); setShowAuth(true); }} />
+      {mobileNavOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="md:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-[2px] touch-manipulation"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+      <button
+        type="button"
+        aria-label="Open menu"
+        className="md:hidden fixed top-3 left-3 z-30 p-2.5 rounded-xl bg-gray-900/95 border border-gray-700 text-white shadow-lg touch-manipulation"
+        onClick={() => setMobileNavOpen(true)}
+      >
+        <Menu size={22} />
+      </button>
+      <Sidebar
+        currentView={view}
+        onNavigate={handleNavigate}
+        onShowAuth={() => {
+          setAuthTab('login');
+          setShowAuth(true);
+        }}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+      />
 
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex overflow-hidden min-w-0 w-full">
         {view === 'browse' && <BrowseView onRequireAuth={handleRequireAuth} />}
         {view === 'library' && user && <LibraryView />}
         {view === 'artists' && <ArtistsView onRequireAuth={handleRequireAuth} />}

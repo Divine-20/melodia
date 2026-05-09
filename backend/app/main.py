@@ -13,6 +13,7 @@ from app.core.security import hash_password
 from app.database import AsyncSessionLocal, engine
 from app.database_base import Base
 from app.models.album import Album
+from app.models.favorite import Favorite  # noqa: F401
 from app.models.artist import Artist
 from app.models.user import User, UserRole
 
@@ -35,6 +36,8 @@ async def init_db_schema() -> None:
         await conn.run_sync(Base.metadata.create_all)
         # Keep simple additive schema evolution without Alembic.
         await conn.execute(text("ALTER TABLE albums ADD COLUMN IF NOT EXISTS photo_url VARCHAR(2048)"))
+        await conn.execute(text("ALTER TABLE albums ADD COLUMN IF NOT EXISTS genre VARCHAR(128)"))
+        await conn.execute(text("ALTER TABLE albums ADD COLUMN IF NOT EXISTS release_year INTEGER"))
         await conn.execute(text("ALTER TABLE artists ADD COLUMN IF NOT EXISTS picture_url VARCHAR(2048)"))
 
 
@@ -79,20 +82,22 @@ async def seed_if_empty(session: AsyncSession) -> None:
     await session.flush()
 
     albums_data = [
-        ("Midnight Signals", "24.99", artists[0].id),
-        ("Analog Dreams", "19.50", artists[0].id),
-        ("Glass Rivers", "29.00", artists[1].id),
-        ("Velvet Corners", "14.99", artists[1].id),
-        ("Neon Drift", "22.00", artists[2].id),
-        ("Static Bloom EP", "9.99", artists[2].id),
+        ("Midnight Signals", "24.99", artists[0].id, "Electronic", 2023),
+        ("Analog Dreams", "19.50", artists[0].id, "Electronic", 2021),
+        ("Glass Rivers", "29.00", artists[1].id, "Neo-Soul", 2024),
+        ("Velvet Corners", "14.99", artists[1].id, "Jazz", 2020),
+        ("Neon Drift", "22.00", artists[2].id, "Glitch Pop", 2022),
+        ("Static Bloom EP", "9.99", artists[2].id, "Glitch Pop", 2019),
     ]
-    for name, price, aid in albums_data:
+    for name, price, aid, genre, release_year in albums_data:
         session.add(
             Album(
                 name=name,
                 price=price,
                 artist_id=aid,
                 description="Seeded catalog entry for reviewers.",
+                genre=genre,
+                release_year=release_year,
             )
         )
 

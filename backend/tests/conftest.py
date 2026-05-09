@@ -19,7 +19,7 @@ async def client():
     get_settings.cache_clear()
     from app.database import engine
     from app.database_base import Base
-    from app.models import Album, Artist, Purchase, Rating, User  # noqa: F401
+    from app.models import Album, Artist, Favorite, Purchase, Rating, User  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

@@ -178,6 +178,16 @@ function filterBySearch<T>(rows: T[], predicate: (row: T, q: string) => boolean,
   return rows.filter((row) => predicate(row, query));
 }
 
+export type AlbumListSort = 'name' | 'price' | 'created_at' | 'average_rating';
+
+export interface ListAlbumsParams {
+  search?: string;
+  genre?: string;
+  minAverageRating?: number;
+  sort?: AlbumListSort;
+  order?: 'asc' | 'desc';
+}
+
 export const marketplaceApi = {
   async listArtists(search?: string): Promise<Artist[]> {
     const payload = await apiRequest('/api/v1/artists', { method: 'GET' });
@@ -233,17 +243,22 @@ export const marketplaceApi = {
     await apiRequest(`/api/v1/artists/${safeId}`, { method: 'DELETE', requireAuth: true });
   },
 
-  async listAlbums(search?: string): Promise<AlbumWithRating[]> {
-    const payload = await apiRequest('/api/v1/albums', { method: 'GET' });
-    const albums = asArray<UnknownObj>(payload).map(normalizeAlbum);
-    return filterBySearch(
-      albums,
-      (album, q) =>
-        album.name.toLowerCase().includes(q) ||
-        album.artist_name.toLowerCase().includes(q) ||
-        album.genre.toLowerCase().includes(q),
-      search
-    ).sort((a, b) => a.name.localeCompare(b.name));
+  async listAlbums(params?: ListAlbumsParams): Promise<AlbumWithRating[]> {
+    const sp = new URLSearchParams();
+    sp.set('page_size', '100');
+    sp.set('page', '1');
+    const q = params?.search?.trim();
+    if (q) sp.set('q', q);
+    const g = params?.genre?.trim();
+    if (g) sp.set('genre', g);
+    if (params?.minAverageRating != null && params.minAverageRating > 0) {
+      sp.set('min_average_rating', String(params.minAverageRating));
+    }
+    if (params?.sort) sp.set('sort', params.sort);
+    if (params?.order) sp.set('order', params.order);
+    const qs = sp.toString();
+    const payload = await apiRequest(`/api/v1/albums?${qs}`, { method: 'GET' });
+    return asArray<UnknownObj>(payload).map(normalizeAlbum);
   },
 
   async getAlbumById(id: string): Promise<AlbumWithRating | undefined> {
@@ -258,6 +273,27 @@ export const marketplaceApi = {
   async listAlbumsByArtist(artistId: string): Promise<AlbumWithRating[]> {
     const albums = await this.listAlbums();
     return albums.filter((album) => album.artist_id === artistId);
+  },
+
+  async getFavoriteAlbumIds(): Promise<number[]> {
+    const payload = await apiRequest<{ album_ids?: number[] }>('/api/v1/me/favorites', {
+      method: 'GET',
+      requireAuth: true,
+    });
+    const ids = payload?.album_ids;
+    return Array.isArray(ids) ? ids : [];
+  },
+
+  async addFavoriteAlbum(albumId: string): Promise<void> {
+    const safeId = encodeURIComponent(toEntityId(albumId));
+    if (!safeId) throw new Error('Album id is required');
+    await apiRequest(`/api/v1/me/favorites/${safeId}`, { method: 'PUT', requireAuth: true });
+  },
+
+  async removeFavoriteAlbum(albumId: string): Promise<void> {
+    const safeId = encodeURIComponent(toEntityId(albumId));
+    if (!safeId) throw new Error('Album id is required');
+    await apiRequest(`/api/v1/me/favorites/${safeId}`, { method: 'DELETE', requireAuth: true });
   },
 
   async createAlbum(album: Omit<Album, 'id' | 'created_at' | 'updated_at'>): Promise<AlbumWithRating> {
@@ -315,7 +351,10 @@ export const marketplaceApi = {
   },
 
   async getMyRatingsMap(): Promise<Record<string, number>> {
-    const payload = await apiRequest('/api/v1/albums', { method: 'GET', requireAuth: true });
+    const payload = await apiRequest('/api/v1/albums?page_size=100&page=1', {
+      method: 'GET',
+      requireAuth: true,
+    });
     const rows = asArray<UnknownObj>(payload);
     const map: Record<string, number> = {};
     for (const row of rows) {

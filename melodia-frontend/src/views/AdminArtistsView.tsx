@@ -34,8 +34,8 @@ export function AdminArtistsView() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-950">
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+    <div className="flex-1 overflow-y-auto bg-gray-950 overscroll-y-contain max-md:pl-[3.25rem]">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div>
             <div className="flex items-center gap-3">

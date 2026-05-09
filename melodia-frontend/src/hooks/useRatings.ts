@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { marketplaceApi } from '../lib/marketplaceApi';
+import { getErrorMessage } from '../lib/errors';
 import { useAuth } from '../context/AuthContext';
 
 export function useMyRatings() {
@@ -30,6 +31,7 @@ export function useRateAlbum() {
       qc.invalidateQueries({ queryKey: ['library'] });
       toast.success('Rating saved');
     },
-    onError: (error) => toast.error(error.message || 'Failed to save rating'),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error, 'Could not save your rating. Please try again.')),
   });
 }

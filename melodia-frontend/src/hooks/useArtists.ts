@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { marketplaceApi } from '../lib/marketplaceApi';
+import { getErrorMessage } from '../lib/errors';
 import type { Artist } from '../lib/database.types';
 
 export function useArtists(search?: string) {
@@ -27,7 +28,8 @@ export function useCreateArtist() {
       qc.invalidateQueries({ queryKey: ['artists'] });
       toast.success('Artist created');
     },
-    onError: (error) => toast.error(error.message || 'Failed to create artist'),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error, 'Could not create the artist. Please try again.')),
   });
 }
 
@@ -41,7 +43,8 @@ export function useUpdateArtist() {
       qc.invalidateQueries({ queryKey: ['albums'] });
       toast.success('Artist updated');
     },
-    onError: (error) => toast.error(error.message || 'Failed to update artist'),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error, 'Could not update the artist. Please try again.')),
   });
 }
 
@@ -56,6 +59,7 @@ export function useDeleteArtist() {
       qc.invalidateQueries({ queryKey: ['albums'] });
       toast.success('Artist deleted');
     },
-    onError: (error) => toast.error(error.message || 'Failed to delete artist'),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error, 'Could not delete the artist. Please try again.')),
   });
 }

@@ -1,4 +1,4 @@
-import { ShoppingCart, Check, Music } from 'lucide-react';
+import { ShoppingCart, Check, Music, Heart } from 'lucide-react';
 import type { AlbumWithRating } from '../lib/database.types';
 import { StarRating } from './StarRating';
 import { useAuth } from '../context/AuthContext';
@@ -7,13 +7,25 @@ interface Props {
   album: AlbumWithRating;
   isPurchased?: boolean;
   myRating?: number;
+  isFavorite?: boolean;
   onPurchase?: () => void;
   onRate?: (score: number) => void;
   onOpenDetail?: () => void;
+  onToggleFavorite?: () => void;
   purchasing?: boolean;
 }
 
-export function AlbumCard({ album, isPurchased, myRating, onPurchase, onRate, onOpenDetail, purchasing }: Props) {
+export function AlbumCard({
+  album,
+  isPurchased,
+  myRating,
+  isFavorite,
+  onPurchase,
+  onRate,
+  onOpenDetail,
+  onToggleFavorite,
+  purchasing,
+}: Props) {
   const { user, isAdmin } = useAuth();
   return (
     <div
@@ -37,6 +49,24 @@ export function AlbumCard({ album, isPurchased, myRating, onPurchase, onRate, on
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+        {onToggleFavorite && !isAdmin && (
+          <button
+            type="button"
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            title={isFavorite ? 'Remove from favorites' : 'Save to favorites'}
+            className="absolute top-3 left-3 z-10 rounded-full bg-black/55 hover:bg-black/75 p-2 backdrop-blur-sm transition-colors ring-1 ring-white/30 shadow-md"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+          >
+            <Heart
+              size={18}
+              className={isFavorite ? 'fill-rose-500 text-rose-500' : 'text-white'}
+            />
+          </button>
+        )}
 
         {isPurchased && !isAdmin && (
           <div className="absolute top-3 right-3 bg-emerald-500 rounded-full p-1.5 shadow-lg">

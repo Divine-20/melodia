@@ -1,12 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { marketplaceApi } from '../lib/marketplaceApi';
+import { marketplaceApi, type ListAlbumsParams } from '../lib/marketplaceApi';
+import { getErrorMessage } from '../lib/errors';
 import type { Album } from '../lib/database.types';
 
-export function useAlbums(search?: string) {
+function normalizeListParams(input?: ListAlbumsParams | string): ListAlbumsParams | undefined {
+  if (input === undefined) return undefined;
+  if (typeof input === 'string') {
+    const t = input.trim();
+    return t ? { search: t } : undefined;
+  }
+  return input;
+}
+
+export function useAlbums(params?: ListAlbumsParams | string) {
+  const normalized = normalizeListParams(params);
   return useQuery({
-    queryKey: ['albums', search],
-    queryFn: async () => marketplaceApi.listAlbums(search),
+    queryKey: [
+      'albums',
+      normalized?.search,
+      normalized?.genre,
+      normalized?.minAverageRating,
+      normalized?.sort,
+      normalized?.order,
+    ],
+    queryFn: async () => marketplaceApi.listAlbums(normalized),
   });
 }
 
@@ -35,7 +53,8 @@ export function useCreateAlbum() {
       qc.invalidateQueries({ queryKey: ['albums'] });
       toast.success('Album created');
     },
-    onError: (error) => toast.error(error.message || 'Failed to create album'),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error, 'Could not create the album. Please try again.')),
   });
 }
 
@@ -48,7 +67,8 @@ export function useUpdateAlbum() {
       qc.invalidateQueries({ queryKey: ['albums'] });
       toast.success('Album updated');
     },
-    onError: (error) => toast.error(error.message || 'Failed to update album'),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error, 'Could not update the album. Please try again.')),
   });
 }
 
@@ -62,6 +82,7 @@ export function useDeleteAlbum() {
       qc.invalidateQueries({ queryKey: ['albums'] });
       toast.success('Album deleted');
     },
-    onError: (error) => toast.error(error.message || 'Failed to delete album'),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error, 'Could not delete the album. Please try again.')),
   });
 }

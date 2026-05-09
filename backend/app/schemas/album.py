@@ -10,6 +10,8 @@ class AlbumBase(BaseModel):
     description: str | None = None
     photo_url: AnyUrl | None = None
     artist_id: int
+    genre: str | None = Field(default=None, max_length=128)
+    release_year: int | None = Field(default=None, ge=1900, le=2100)
 
 
 class AlbumCreate(AlbumBase):
@@ -22,6 +24,8 @@ class AlbumUpdate(BaseModel):
     description: str | None = None
     photo_url: AnyUrl | None = None
     artist_id: int | None = None
+    genre: str | None = Field(default=None, max_length=128)
+    release_year: int | None = Field(default=None, ge=1900, le=2100)
 
 
 class AlbumRead(BaseModel):
@@ -33,6 +37,8 @@ class AlbumRead(BaseModel):
     description: str | None
     photo_url: str | None
     artist_id: int
+    genre: str | None = None
+    release_year: int | None = None
     average_rating: float | None = None
     rating_count: int = 0
     created_at: datetime

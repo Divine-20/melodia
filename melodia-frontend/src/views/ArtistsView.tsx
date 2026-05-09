@@ -1,29 +1,33 @@
 import { useState } from 'react';
-import { Users, Calendar, Music } from 'lucide-react';
+import { AlertCircle, Calendar, Music, Users } from 'lucide-react';
 import { useArtists } from '../hooks/useArtists';
 import { useAlbumsByArtist } from '../hooks/useAlbums';
 import { usePurchasedAlbumIdSet } from '../hooks/usePurchases';
 import { useMyRatings } from '../hooks/useRatings';
 import { usePurchaseAlbum } from '../hooks/usePurchases';
 import { useRateAlbum } from '../hooks/useRatings';
+import { useFavoriteAlbumIds, useSetFavoriteAlbum } from '../hooks/useFavorites';
 import { AlbumCard } from '../components/AlbumCard';
 import { AlbumDetailModal } from '../components/AlbumDetailModal';
 import { SearchBar } from '../components/SearchBar';
 import { useAuth } from '../context/AuthContext';
 import type { Artist, AlbumWithRating } from '../lib/database.types';
+import { getErrorMessage } from '../lib/errors';
 
 interface Props {
   onRequireAuth: () => void;
 }
 
 function ArtistAlbums({ artist, onRequireAuth }: { artist: Artist; onRequireAuth: () => void }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { data: albums = [] } = useAlbumsByArtist(artist.id);
   const purchasedAlbumIds = usePurchasedAlbumIdSet();
   const albumIsPurchased = (albumId: string) => purchasedAlbumIds.has(String(albumId).trim());
   const { data: myRatings = {} } = useMyRatings();
+  const { data: favoriteIdSet } = useFavoriteAlbumIds();
   const purchaseMutation = usePurchaseAlbum();
   const rateMutation = useRateAlbum();
+  const setFavoriteMutation = useSetFavoriteAlbum();
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumWithRating | null>(null);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
 
@@ -31,6 +35,13 @@ function ArtistAlbums({ artist, onRequireAuth }: { artist: Artist; onRequireAuth
     if (!user) { onRequireAuth(); return; }
     setPurchasingId(albumId);
     try { await purchaseMutation.mutateAsync(albumId); } finally { setPurchasingId(null); }
+  }
+
+  function handleToggleFavorite(albumId: string) {
+    if (isAdmin) return;
+    if (!user) { onRequireAuth(); return; }
+    const isFav = favoriteIdSet?.has(String(albumId)) ?? false;
+    setFavoriteMutation.mutate({ albumId, favorite: !isFav });
   }
 
   return (
@@ -42,9 +53,13 @@ function ArtistAlbums({ artist, onRequireAuth }: { artist: Artist; onRequireAuth
             album={album}
             isPurchased={albumIsPurchased(album.id)}
             myRating={myRatings[album.id]}
+            isFavorite={favoriteIdSet?.has(String(album.id)) ?? false}
             onPurchase={() => handlePurchase(album.id)}
             onRate={score => rateMutation.mutateAsync({ albumId: album.id, score })}
             onOpenDetail={() => setSelectedAlbum(album)}
+            onToggleFavorite={
+              isAdmin ? undefined : () => handleToggleFavorite(album.id)
+            }
             purchasing={purchasingId === album.id}
           />
         ))}
@@ -54,8 +69,12 @@ function ArtistAlbums({ artist, onRequireAuth }: { artist: Artist; onRequireAuth
           album={selectedAlbum}
           isPurchased={albumIsPurchased(selectedAlbum.id)}
           myRating={myRatings[selectedAlbum.id]}
+          isFavorite={favoriteIdSet?.has(String(selectedAlbum.id)) ?? false}
           onPurchase={() => handlePurchase(selectedAlbum.id)}
           onRate={score => rateMutation.mutateAsync({ albumId: selectedAlbum.id, score })}
+          onToggleFavorite={
+            isAdmin ? undefined : () => handleToggleFavorite(selectedAlbum.id)
+          }
           onClose={() => setSelectedAlbum(null)}
           purchasing={purchasingId === selectedAlbum.id}
           onRequireAuth={onRequireAuth}
@@ -68,15 +87,16 @@ function ArtistAlbums({ artist, onRequireAuth }: { artist: Artist; onRequireAuth
 export function ArtistsView({ onRequireAuth }: Props) {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const { data: artists = [], isLoading } = useArtists(search);
+  const { data: artists = [], isLoading, isError, error, refetch, isRefetching } =
+    useArtists(search);
 
   function toggle(id: string) {
     setExpanded(e => e === id ? null : id);
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-950">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <div className="flex-1 overflow-y-auto bg-gray-950 overscroll-y-contain max-md:pl-[3.25rem]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
@@ -104,13 +124,38 @@ export function ArtistsView({ onRequireAuth }: Props) {
           </div>
         )}
 
-        {!isLoading && artists.length === 0 && (
+        {isError && (
+          <div
+            className="rounded-2xl border border-red-500/35 bg-red-950/40 px-5 py-12 text-center max-w-lg mx-auto"
+            role="alert"
+          >
+            <AlertCircle size={44} className="mx-auto mb-4 text-red-400" aria-hidden />
+            <h3 className="text-lg font-semibold text-white mb-2">Couldn’t load artists</h3>
+            <p className="text-sm text-red-100/90 mb-6 leading-relaxed">
+              {getErrorMessage(
+                error,
+                'The artist list could not be loaded. Check your connection and try again.'
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+              className="inline-flex items-center justify-center min-h-[44px] px-6 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-60 touch-manipulation"
+            >
+              {isRefetching ? 'Retrying…' : 'Try again'}
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !isError && artists.length === 0 && (
           <div className="text-center py-20">
             <Users size={48} className="mx-auto mb-4 text-gray-600" />
             <p className="text-gray-400">No artists found{search ? ` for "${search}"` : ''}.</p>
           </div>
         )}
 
+        {!isError && (
         <div className="space-y-4">
           {artists.map(artist => (
             <div key={artist.id} className="bg-gray-800/40 hover:bg-gray-800/70 border border-gray-700/50 rounded-2xl overflow-hidden transition-all duration-200">
@@ -153,6 +198,7 @@ export function ArtistsView({ onRequireAuth }: Props) {
             </div>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

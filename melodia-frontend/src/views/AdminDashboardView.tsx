@@ -23,8 +23,8 @@ const cards: { id: AdminViewId; title: string; description: string; icon: typeof
 
 export function AdminDashboardView({ onNavigate }: Props) {
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-950">
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+    <div className="flex-1 overflow-y-auto bg-gray-950 overscroll-y-contain max-md:pl-[3.25rem]">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center flex-shrink-0">
             <Shield size={24} className="text-amber-400" />

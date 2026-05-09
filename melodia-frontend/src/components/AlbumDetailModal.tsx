@@ -1,4 +1,4 @@
-import { X, ShoppingCart, Check, Music, Calendar, Tag } from 'lucide-react';
+import { X, ShoppingCart, Check, Music, Calendar, Tag, Heart } from 'lucide-react';
 import type { AlbumWithRating } from '../lib/database.types';
 import { StarRating } from './StarRating';
 import { useAuth } from '../context/AuthContext';
@@ -7,23 +7,55 @@ interface Props {
   album: AlbumWithRating;
   isPurchased?: boolean;
   myRating?: number;
+  isFavorite?: boolean;
   onPurchase?: () => void;
   onRate?: (score: number) => void;
+  onToggleFavorite?: () => void;
   onClose: () => void;
   purchasing?: boolean;
   onRequireAuth?: () => void;
 }
 
-export function AlbumDetailModal({ album, isPurchased, myRating, onPurchase, onRate, onClose, purchasing, onRequireAuth }: Props) {
+export function AlbumDetailModal({
+  album,
+  isPurchased,
+  myRating,
+  isFavorite,
+  onPurchase,
+  onRate,
+  onToggleFavorite,
+  onClose,
+  purchasing,
+  onRequireAuth,
+}: Props) {
   const { user, isAdmin } = useAuth();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-scale-in">
-        <button onClick={onClose} className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/80 text-white rounded-full p-2 transition-colors">
-          <X size={18} />
-        </button>
+      <div className="relative bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[min(92dvh,800px)] overflow-y-auto overscroll-contain shadow-2xl animate-scale-in">
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          {onToggleFavorite && !isAdmin && (
+            <button
+              type="button"
+              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              title={isFavorite ? 'Remove from favorites' : 'Save to favorites'}
+              className="bg-black/50 hover:bg-black/80 text-white rounded-full p-2 transition-colors ring-1 ring-white/25"
+              onClick={onToggleFavorite}
+            >
+              <Heart
+                size={18}
+                className={isFavorite ? 'fill-rose-500 text-rose-500' : 'text-white'}
+              />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="bg-black/50 hover:bg-black/80 text-white rounded-full p-2 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         <div className="flex flex-col md:flex-row">
           <div className="md:w-64 flex-shrink-0">

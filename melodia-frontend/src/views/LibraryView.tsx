@@ -1,36 +1,43 @@
 import { useState } from 'react';
-import { BookOpen, Music } from 'lucide-react';
+import { AlertCircle, BookOpen, Music } from 'lucide-react';
 import { useMyLibrary } from '../hooks/usePurchases';
 import { useMyRatings } from '../hooks/useRatings';
 import { useRateAlbum } from '../hooks/useRatings';
+import { useFavoriteAlbumIds, useSetFavoriteAlbum } from '../hooks/useFavorites';
 import { AlbumCard } from '../components/AlbumCard';
 import { AlbumDetailModal } from '../components/AlbumDetailModal';
 import { SearchBar } from '../components/SearchBar';
 import { useAuth } from '../context/AuthContext';
 import type { AlbumWithRating } from '../lib/database.types';
+import { getErrorMessage } from '../lib/errors';
 
 export function LibraryView() {
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumWithRating | null>(null);
 
-  const { data: library = [], isLoading, isError } = useMyLibrary();
+  const { data: library = [], isLoading, isError, error, refetch, isRefetching } = useMyLibrary();
   const { data: myRatings = {} } = useMyRatings();
+  const { data: favoriteIdSet } = useFavoriteAlbumIds();
   const rateMutation = useRateAlbum();
+  const setFavoriteMutation = useSetFavoriteAlbum();
 
   async function handleRate(albumId: string, score: number) {
     await rateMutation.mutateAsync({ albumId, score });
+  }
+
+  function handleToggleFavorite(albumId: string) {
+    const isFav = favoriteIdSet?.has(String(albumId)) ?? false;
+    setFavoriteMutation.mutate({ albumId, favorite: !isFav });
   }
 
   const filtered = search
     ? library.filter(a => a.name.toLowerCase().includes(search.toLowerCase()) || a.artist_name.toLowerCase().includes(search.toLowerCase()))
     : library;
 
-  console.log(filtered,'filtered');
-
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-950">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <div className="flex-1 overflow-y-auto bg-gray-950 overscroll-y-contain max-md:pl-[3.25rem]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
@@ -65,9 +72,26 @@ export function LibraryView() {
         )}
 
         {isError && (
-          <div className="text-center py-20">
-            <Music size={48} className="mx-auto mb-4 text-gray-600" />
-            <p className="text-gray-400">Failed to load your library.</p>
+          <div
+            className="rounded-2xl border border-red-500/35 bg-red-950/40 px-5 py-12 text-center max-w-lg mx-auto"
+            role="alert"
+          >
+            <AlertCircle size={44} className="mx-auto mb-4 text-red-400" aria-hidden />
+            <h3 className="text-lg font-semibold text-white mb-2">Couldn’t load your library</h3>
+            <p className="text-sm text-red-100/90 mb-6 leading-relaxed">
+              {getErrorMessage(
+                error,
+                'We couldn’t fetch your purchases from the server. Check your connection and try again.'
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+              className="inline-flex items-center justify-center min-h-[44px] px-6 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-60 touch-manipulation"
+            >
+              {isRefetching ? 'Retrying…' : 'Try again'}
+            </button>
           </div>
         )}
 
@@ -100,10 +124,14 @@ export function LibraryView() {
               <AlbumCard
                 key={album.id}
                 album={album}
-                isPurchased               
+                isPurchased
                 myRating={myRatings[album.id]}
+                isFavorite={favoriteIdSet?.has(String(album.id)) ?? false}
                 onRate={score => handleRate(album.id, score)}
                 onOpenDetail={() => setSelectedAlbum(album)}
+                onToggleFavorite={
+                  isAdmin ? undefined : () => handleToggleFavorite(album.id)
+                }
               />
             ))}
           </div>
@@ -115,7 +143,11 @@ export function LibraryView() {
           album={selectedAlbum}
           isPurchased
           myRating={myRatings[selectedAlbum.id]}
+          isFavorite={favoriteIdSet?.has(String(selectedAlbum.id)) ?? false}
           onRate={score => handleRate(selectedAlbum.id, score)}
+          onToggleFavorite={
+            isAdmin ? undefined : () => handleToggleFavorite(selectedAlbum.id)
+          }
           onClose={() => setSelectedAlbum(null)}
         />
       )}

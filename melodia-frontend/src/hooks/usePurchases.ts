@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { marketplaceApi } from '../lib/marketplaceApi';
+import { getErrorMessage } from '../lib/errors';
 import { useAuth } from '../context/AuthContext';
 
 export function useMyPurchases() {
@@ -54,6 +55,7 @@ export function usePurchaseAlbum() {
       qc.invalidateQueries({ queryKey: ['album', albumId] });
       toast.success('Album purchased successfully');
     },
-    onError: (error) => toast.error(error.message || 'Purchase failed'),
+    onError: (error: unknown) =>
+      toast.error(getErrorMessage(error, 'Purchase could not be completed. Please try again.')),
   });
 }

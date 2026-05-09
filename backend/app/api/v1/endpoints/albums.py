@@ -2,7 +2,7 @@ from math import ceil
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -30,6 +30,8 @@ def _album_to_read(row: Album, stats: dict[int, tuple[float | None, int]]) -> Al
         description=row.description,
         photo_url=row.photo_url,
         artist_id=row.artist_id,
+        genre=row.genre,
+        release_year=row.release_year,
         average_rating=avg,
         rating_count=cnt,
         created_at=row.created_at,
@@ -50,11 +52,40 @@ def _album_to_read_with_artist(
     return AlbumReadWithArtist(**data)
 
 
+def _sort_album_rows_in_memory(
+    rows: list[Album],
+    stats: dict[int, tuple[float | None, int]],
+    sort: str,
+    order: str,
+) -> list[Album]:
+    reverse = order == "desc"
+
+    def avg_key(a: Album) -> float:
+        av, _ = stats.get(a.id, (None, 0))
+        return av if av is not None else -1.0
+
+    if sort == "average_rating":
+        return sorted(rows, key=avg_key, reverse=reverse)
+    if sort == "name":
+        return sorted(rows, key=lambda a: a.name.lower(), reverse=reverse)
+    if sort == "price":
+        return sorted(rows, key=lambda a: float(a.price), reverse=reverse)
+    # created_at
+    return sorted(rows, key=lambda a: a.created_at, reverse=reverse)
+
+
 @router.get("", response_model=Paginated[AlbumReadWithArtist])
 async def list_albums(
     db: Annotated[AsyncSession, Depends(get_db)],
     q: str | None = Query(None, description="Search album or artist performing name"),
     artist_id: int | None = Query(None),
+    genre: str | None = Query(None, description="Filter by genre (substring match, case-insensitive)"),
+    min_average_rating: float | None = Query(
+        None,
+        ge=0,
+        le=5,
+        description="Only albums whose community average is at least this (requires ratings)",
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     sort: str = Query("name", pattern="^(name|price|created_at|average_rating)$"),
@@ -73,27 +104,39 @@ async def list_albums(
         stmt = stmt.where(filt)
         count_stmt = count_stmt.where(filt)
 
-    total_result = await db.execute(count_stmt)
-    total = int(total_result.scalar_one())
+    if genre and genre.strip():
+        gpat = f"%{genre.strip()}%"
+        gf = and_(Album.genre.isnot(None), Album.genre.ilike(gpat))
+        stmt = stmt.where(gf)
+        count_stmt = count_stmt.where(gf)
 
-    # For sorting by average_rating we need a subquery — simplified: fetch ids sorted in Python for that case only
-    if sort == "average_rating":
+    use_full_path = sort == "average_rating" or min_average_rating is not None
+
+    if use_full_path:
         all_rows = (await db.execute(stmt.options(selectinload(Album.artist)))).scalars().all()
-        ids = [a.id for a in all_rows]
-        stats = await average_ratings_for_albums(db, ids)
-        def avg_key(a: Album) -> float:
-            av, _ = stats.get(a.id, (None, 0))
-            return av if av is not None else -1.0
+        ids_all = [a.id for a in all_rows]
+        stats_all = await average_ratings_for_albums(db, ids_all)
 
-        reverse = order == "desc"
-        all_rows = sorted(all_rows, key=avg_key, reverse=reverse)
+        filtered: list[Album] = []
+        for a in all_rows:
+            if min_average_rating is not None:
+                av, cnt = stats_all.get(a.id, (None, 0))
+                if av is None or cnt == 0:
+                    continue
+                if float(av) < float(min_average_rating):
+                    continue
+            filtered.append(a)
+
+        sorted_rows = _sort_album_rows_in_memory(filtered, stats_all, sort, order)
+        total = len(sorted_rows)
         pages = max(1, ceil(total / page_size)) if total else 1
-        chunk = all_rows[(page - 1) * page_size : (page - 1) * page_size + page_size]
-        stats_full = await average_ratings_for_albums(db, [a.id for a in chunk])
+        offset = (page - 1) * page_size
+        chunk = sorted_rows[offset : offset + page_size]
+        stats_chunk = await average_ratings_for_albums(db, [a.id for a in chunk])
         items = [
             _album_to_read_with_artist(
                 a,
-                stats_full,
+                stats_chunk,
                 a.artist.performing_name if a.artist else None,
                 a.artist.picture_url if a.artist else None,
             )
@@ -101,6 +144,9 @@ async def list_albums(
         ]
         meta = PaginatedMeta(total=total, page=page, page_size=page_size, pages=pages)
         return Paginated(items=items, meta=meta)
+
+    total_result = await db.execute(count_stmt)
+    total = int(total_result.scalar_one())
 
     sort_col: Any
     if sort == "name":
@@ -167,6 +213,8 @@ async def create_album(
         description=body.description,
         photo_url=str(body.photo_url) if body.photo_url else None,
         artist_id=body.artist_id,
+        genre=body.genre,
+        release_year=body.release_year,
     )
     db.add(album)
     await db.flush()
